@@ -32,8 +32,11 @@ intPatt = r'[a-zA-Z]+\d+\/(?:\d+\/)*\d+'
 domainPatt = '.mgmt.internal.das'
 
 def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices):
-    # This function is to take a show run
+    # This function is test the connectivity to the INET network of the Opengear devices
+    reachableDevices = []
+    unreachableDevices = []
 
+    validIPs = [validIPs]
     for validDeviceIP in validIPs:
         try:
             validDeviceIP = validDeviceIP.strip()
@@ -69,6 +72,17 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
                     authLog.info(f"The following Site Code was found: {siteCode}")
                     OpengearConn = siteCode + '-con-20-inet.anthem.com'
 
+                    try:
+                        authLog.info(f"Resolving hostname {OpengearConn}")
+                        opengearIP = socket.gethostbyname(OpengearConn)
+                        authLog.info(f"Hostname: {OpengearConn} resolves to: {opengearIP}")
+                    except socket.gaierror as error:
+                        authLog.error(f"DNS resolution failed for {OpengearConn}: {error}")
+                        authLog.error(traceback.format_exc())
+                        print(f"ERROR: Failed the DNS resolution for {OpengearConn}, error: {error}\n", traceback.format_exc())
+                        unreachableDevices.append(OpengearConn)
+                        continue
+
                     for interface in shIntCONOut1:
                         shutdownInt[0] = f'interface {interface}'
                         shutdownIntOut = sshAccess.send_config_set(shutdownInt)
@@ -76,7 +90,7 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
 
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connTest:
                         connTest.settimeout(900)
-                        connResult = connTest.connect_ex((OpengearConn, 22))
+                        connResult = connTest.connect_ex((opengearIP, 22))
                         if connResult == 0:
                             print(f"Device {OpengearConn} is reachable on port TCP 22.")
                             authLog.info(f"Device {OpengearConn} is reachable on port TCP 22.")
@@ -126,16 +140,13 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
 
 def testConThread(validIPs, username, netDevice):
     threads = []
-    reachableDevices = []
-    unreachableDevices = []
-    
-    if isinstance(validIPs, str):
-        validIPs = [validIPs]
 
     for validDeviceIP in validIPs:
         thread = threading.Thread(target=testCON, args=(validDeviceIP, username, netDevice, reachableDevices, unreachableDevices))
         thread.start()
+        authLog.info(f"Thread {thread} started.")
         threads.append(thread)
+        authLog.info(f"Thread {thread} appended to threads: {threads}")
 
     for thread in threads:
         thread.join()
