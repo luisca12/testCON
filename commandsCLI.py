@@ -128,6 +128,9 @@ def testConThread(validIPs, username, netDevice):
     threads = []
     reachableDevices = []
     unreachableDevices = []
+    
+    if isinstance(validIPs, str):
+        validIPs = [validIPs]
 
     for validDeviceIP in validIPs:
         thread = threading.Thread(target=testCON, args=(validDeviceIP, username, netDevice, reachableDevices, unreachableDevices))
