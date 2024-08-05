@@ -4,11 +4,13 @@ from log import authLog
 import traceback
 import threading
 import socket
+import time
 import re
 import os
 
 interface = ''
-
+retryInterval = 5
+maxRetries = 180
 shHostname = "show run | i hostname"
 shIntCON = "show interface description | inc CON|con"
 
@@ -16,12 +18,10 @@ shutdownInt = [
     f'interface {interface}',
     'shutdown'
 ]
-
 noShutInt = [
     f'interface {interface}',
     'no shutdown'
 ]
-
 reachableDevices = []
 unreachableDevices = []
 
@@ -89,17 +89,34 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
                         authLog.info(f"Interface {interface} on device {validDeviceIP} was shutdown\n{shutdownIntOut}")
 
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connTest:
-                        connTest.settimeout(900)
-                        connResult = connTest.connect_ex((opengearIP, 22))
-                        if connResult == 0:
-                            print(f"Device {OpengearConn} is reachable on port TCP 22.")
-                            authLog.info(f"Device {OpengearConn} is reachable on port TCP 22.")
-                            reachableDevices.append(OpengearConn)
+                        startTime = time.time()
+                        retries = 0
 
+                        while retries < maxRetries:
+                            try:
+                                connTest.settimeout(retryInterval)
+                                connResult = connTest.connect_ex((opengearIP, 22))
+                                authLog.info(f"Testing TCP Port 22 connectivity for address: {opengearIP}, device: {validDeviceIP}")
+                                authLog.info(f"TCP Port 22 connectivity results: {connResult}")
+                                if connResult == 0:
+                                    print(f"Device {OpengearConn} is reachable on port TCP 22.")
+                                    authLog.info(f"Device {OpengearConn} is reachable on port TCP 22.")
+                                    reachableDevices.append(OpengearConn)
+                                    break
+                                else:
+                                    print(f"Device {OpengearConn} is not reachable on port TCP 22.")
+                                    authLog.error(f"Device: {OpengearConn}, is not reachable on port TCP 22.")
+                                    retries += 1
+                                    time.sleep(retryInterval)    
+                            except socket.timeout:
+                                print(f"INFO: Attempt {retries + 1}: Connection attempt timed out to device: {OpengearConn}, retrying now...")    
+                                authLog.info(f"Attempt {retries + 1}: Connection attempt timed out to device: {OpengearConn}, retrying now...")
+                                retries += 1
+                                time.sleep(retryInterval)
                         else:
-                            print(f"Device {OpengearConn} is not reachable on port TCP 22, will be skipped.")
-                            authLog.error(f"Device IP: {OpengearConn}, is not reachable on port TCP 22.")
-                            authLog.error(traceback.format_exc())        
+                            print(f"Device {OpengearConn} is not reachable on port TCP 22 after {maxRetries} retries.")
+                            authLog.error(f"Device: {OpengearConn}, is not reachable on port TCP 22.")
+                            authLog.error(traceback.format_exc())
                             unreachableDevices.append(OpengearConn)
 
                     for interface in shIntCONOut1:
