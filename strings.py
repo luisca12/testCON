@@ -13,7 +13,7 @@ def menuString(deviceIP, username):
         print('\t\t    Menu - Please choose an option')
         print('\t\t     Only numbers are accepted')
         print('  -------------------------------------------------------------- ')
-        print('  >\t         1. To test the INET network:\t       <\n')   
+        print('  >\t         1. To test the INET network:\t\t       <\n')   
         print('  >\t\t      2. Exit the program\t\t       <')
         print('  -------------------------------------------------------------- \n')
 
@@ -28,3 +28,5 @@ def shRunString(validIPs):
         print(f'> Taking a show run of the device {validIPs} <')
         print('>\t   Please wait until it finishes\t  <')
         print('  ------------------------------------------------- ')
+
+menuString("test", "test")

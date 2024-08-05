@@ -11,6 +11,7 @@ import os
 interface = ''
 retryInterval = 5
 maxRetries = 180
+retries = 0
 shHostname = "show run | i hostname"
 shIntCON = "show interface description | inc CON|con"
 
@@ -72,27 +73,24 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
                     authLog.info(f"The following Site Code was found: {siteCode}")
                     OpengearConn = siteCode + '-con-20-inet.anthem.com'
 
-                    try:
-                        authLog.info(f"Resolving hostname {OpengearConn}")
-                        opengearIP = socket.gethostbyname(OpengearConn)
-                        authLog.info(f"Hostname: {OpengearConn} resolves to: {opengearIP}")
-                    except socket.gaierror as error:
-                        authLog.error(f"DNS resolution failed for {OpengearConn}: {error}")
-                        authLog.error(traceback.format_exc())
-                        print(f"ERROR: Failed the DNS resolution for {OpengearConn}, error: {error}\n", traceback.format_exc())
-                        unreachableDevices.append(OpengearConn)
-                        continue
-
                     for interface in shIntCONOut1:
                         shutdownInt[0] = f'interface {interface}'
                         shutdownIntOut = sshAccess.send_config_set(shutdownInt)
                         authLog.info(f"Interface {interface} on device {validDeviceIP} was shutdown\n{shutdownIntOut}")
-
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connTest:
-                        startTime = time.time()
-                        retries = 0
-
-                        while retries <= maxRetries:
+                    retries = 0
+                    while retries <= maxRetries:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connTest:
+                            startTime = time.time()
+                            try:
+                                authLog.info(f"Resolving hostname {OpengearConn}")
+                                opengearIP = socket.gethostbyname(OpengearConn)
+                                authLog.info(f"Hostname: {OpengearConn} resolves to: {opengearIP}")
+                            except socket.gaierror as error:
+                                authLog.error(f"DNS resolution failed for {OpengearConn}: {error}")
+                                authLog.error(traceback.format_exc())
+                                print(f"ERROR: Failed the DNS resolution for {OpengearConn}, error: {error}\n", traceback.format_exc())
+                                unreachableDevices.append(OpengearConn)
+                                break
                             try:
                                 connTest.settimeout(retryInterval)
                                 connResult = connTest.connect_ex((opengearIP, 22))
@@ -106,21 +104,30 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
                                 else:
                                     print(f"Device {OpengearConn} is not reachable on port TCP 22.")
                                     authLog.error(f"Device: {OpengearConn}, is not reachable on port TCP 22.")
-                                    authLog.error(f"Retry number: {retries + 1}")
+                                    authLog.error(f"Retry number: {retries + 1}, connectivity code error:{connResult}")
                                     retries += 1
-                                    time.sleep(retryInterval)    
+                                    connResult = 0 
+
                             except socket.timeout:
                                 print(f"INFO: Attempt {retries + 1}: Connection attempt timed out to device: {OpengearConn}, retrying now...")    
                                 authLog.info(f"Attempt {retries + 1}: Connection attempt timed out to device: {OpengearConn}, retrying now...")
                                 authLog.error(f"Retry number: {retries + 1}")
                                 retries += 1
+                                connResult = 0 
+
+                            except socket.error as error:
+                                print(f"ERROR: An error occurred: {error}\n", traceback.format_exc())
+                                authLog.error(f"User {username} connected to {validDeviceIP} got an error: {error}")
+                                authLog.error(traceback.format_exc(),"\n")
+
+                            finally:
+                                connTest.close()
                                 time.sleep(retryInterval)
-                        else:
-                            print(f"Device {OpengearConn} is not reachable on port TCP 22 after {maxRetries} retries.")
-                            authLog.error(f"Device: {OpengearConn}, is not reachable on port TCP 22.")
-                            authLog.error(traceback.format_exc())
-                            unreachableDevices.append(OpengearConn)
-                            break
+                    else:
+                        print(f"Device {OpengearConn} is not reachable on port TCP 22 after {maxRetries} retries.")
+                        authLog.error(f"Device: {OpengearConn}, is not reachable on port TCP 22.")
+                        authLog.error(traceback.format_exc())
+                        unreachableDevices.append(OpengearConn)
 
                     for interface in shIntCONOut1:
                         noShutInt[0] = f'interface {interface}'
