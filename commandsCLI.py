@@ -92,11 +92,11 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
                         startTime = time.time()
                         retries = 0
 
-                        while retries < maxRetries:
+                        while retries <= maxRetries:
                             try:
                                 connTest.settimeout(retryInterval)
                                 connResult = connTest.connect_ex((opengearIP, 22))
-                                authLog.info(f"Testing TCP Port 22 connectivity for address: {opengearIP}, device: {validDeviceIP}")
+                                authLog.info(f"Test number: {retries + 1}, testing TCP Port 22 connectivity for address: {opengearIP}, device: {validDeviceIP}")
                                 authLog.info(f"TCP Port 22 connectivity results: {connResult}")
                                 if connResult == 0:
                                     print(f"Device {OpengearConn} is reachable on port TCP 22.")
@@ -106,11 +106,13 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
                                 else:
                                     print(f"Device {OpengearConn} is not reachable on port TCP 22.")
                                     authLog.error(f"Device: {OpengearConn}, is not reachable on port TCP 22.")
+                                    authLog.error(f"Retry number: {retries + 1}")
                                     retries += 1
                                     time.sleep(retryInterval)    
                             except socket.timeout:
                                 print(f"INFO: Attempt {retries + 1}: Connection attempt timed out to device: {OpengearConn}, retrying now...")    
                                 authLog.info(f"Attempt {retries + 1}: Connection attempt timed out to device: {OpengearConn}, retrying now...")
+                                authLog.error(f"Retry number: {retries + 1}")
                                 retries += 1
                                 time.sleep(retryInterval)
                         else:
@@ -118,6 +120,7 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
                             authLog.error(f"Device: {OpengearConn}, is not reachable on port TCP 22.")
                             authLog.error(traceback.format_exc())
                             unreachableDevices.append(OpengearConn)
+                            break
 
                     for interface in shIntCONOut1:
                         noShutInt[0] = f'interface {interface}'
