@@ -13,7 +13,7 @@ retryInterval = 5
 maxRetries = 180
 retries = 0
 shHostname = "show run | i hostname"
-shIntCON = "show interface description | inc CON|con"
+shIntCON = "show interface description | inc CON|con|NET|Net|net"
 
 shutdownInt = [
     f'interface {interface}',
