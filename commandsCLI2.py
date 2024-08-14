@@ -14,7 +14,9 @@ maxRetries = 180
 retries = 0
 
 shHostname = "show run | i hostname"
+shVlanID1101 = "show vlan id 1101" 
 shIntCON = "show interface description | inc CON|con|NET|Net|net"
+
 shMac = [
     f'show mac address-table interface {interface}',
 ]
@@ -45,10 +47,18 @@ def showOpenMAC(validIPs, username, netDevice):
             print(f"Connecting to device {validDeviceIP}...")
             with ConnectHandler(**currentNetDevice) as sshAccess:
                 try:
-                    sshAccess.enable()
+                    print(f"INFO: Taking a \"{shVlanID1101}\" for device: {validDeviceIP}")
+                    shVlanID1101Out = sshAccess.send_command(shVlanID1101)
+                    authLog.info(f"Automation successfully ran the command:{shVlanID1101}\n{shHostnameOut}{shVlanID1101}\n{shVlanID1101Out}")
+
+                    if "not found" in shVlanID1101Out:
+                        print(f"INFO: Device {validDeviceIP} does not have VLANS 1101 and 1103, skipping device...")
+                        authLog.info(f"Device {validDeviceIP} does not have VLANS 1101 and 1103, skipping device...")
+                        continue
+
                     shHostnameOut = sshAccess.send_command(shHostname)
                     authLog.info(f"User {username} successfully found the hostname {shHostnameOut}")
-                    shHostnameOut = shHostnameOut.replace('hostname', '').strip() + "#"
+                    shHostnameOut = shHostnameOut.replace('hostname', '').strip() + "#"                 
 
                     print(f"INFO: Taking a \"{shIntCON}\" for device: {validDeviceIP}")
                     shIntCONOut = sshAccess.send_command(shIntCON)
