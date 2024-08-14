@@ -75,7 +75,7 @@ def Auth():
                 else:
                     print(f"Invalid IP address format: {ip}, will be skipped.")
                     authLog.error(f"User {username} input the following invalid IP: {ip}")
-                    authLog.debug(traceback.format_exc())
+                    authLog.error(traceback.format_exc())
             if validIPs:
                 break
         validIPs, username, netDevice = requestLogin(validIPs)
