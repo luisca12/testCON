@@ -41,7 +41,7 @@ def Auth():
                                 IPreachChecked = checkReachPort22(ip) # NEED TO REVERT
                                 validIPs.append(IPreachChecked) # Append IPreachChecked
                             else:
-                                print(f"INFO: Invalid IP address format: {ip}, will be skipped.\n")
+                                print(f"INFO: Invalid IP address format: {ip}, will be skipped.")
                                 authLog.error(f"Invalid IP address found: {ip} in file: {csvFile}")
                     if not validIPs:
                         print(f"No valid IP addresses found in the file path: {csvFile}\n")
@@ -51,7 +51,7 @@ def Auth():
                     else:
                         break  
             except FileNotFoundError:
-                print("File not found. Please check the file path and try again.")
+                print("ERROR: File not found. Please check the file path and try again.")
                 authLog.error(f"File not found in path {csvFile}")
                 authLog.error(traceback.format_exc())
                 continue

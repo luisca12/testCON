@@ -1,4 +1,4 @@
-from log import invalidIPLog, authLog
+from log import authLog
 from netmiko.exceptions import NetMikoAuthenticationException, NetMikoTimeoutException
 
 import socket
@@ -22,21 +22,27 @@ def validateIP(deviceIP):
         return True
     except (socket.error, AttributeError):
         try:
-            deviceIP = f'{deviceIP}.mgmt.internal.das'
-            deviceIP = f'{deviceIP}'
-            socket.gethostbyname(deviceIP)
-            authLog.info(f"Hostname successfully validated: {deviceIP}")
+            deviceIP1 = f'{deviceIP}.mgmt.internal.das'
+            socket.gethostbyname(deviceIP1)
+            authLog.info(f"Hostname successfully validated: {deviceIP1}")
             return True
-        except (socket.gaierror, AttributeError):
-            authLog.error(f"Not a valid IP address or hostname: {deviceIP}")
-            invalidIPLog.error(f"Invalid IP address or hostname: {deviceIP}")
-            # Append the invalid IP address or hostname to a CSV file
-            with open('invalidDestinations.csv', mode='a', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow([deviceIP])
-            return False
+        except socket.gaierror:
+            try:
+                deviceIP2 = f'{deviceIP}.cm.mgmt.internal.das'
+                socket.gethostbyname(deviceIP2)
+                authLog.info(f"Hostname successfully validated: {deviceIP2}")
+                return True
+            except socket.gaierror:
+                authLog.error(f"Not a valid IP address or hostname: {deviceIP1}, {deviceIP2}")
+                print(f"ERROR: Invalid IP address or hostname:  {deviceIP1}, {deviceIP2}")
+                # Append the invalid IP address or hostname to a CSV file
+                with open('invalidDestinations.csv', mode='a', newline='') as file:
+                    writer = csv.writer(file)
+                    writer.writerow([deviceIP])
+                return False
         
 def checkReachPort22(ip):
+    baseIP = ip
     try:
         if ip.count('.') == 3:  # Check if the input is an IP address
             ip = ip
@@ -47,18 +53,25 @@ def checkReachPort22(ip):
         connTest.settimeout(3)
         connResult = connTest.connect_ex((ip, 22))
         if connResult == 0:
-            print(f"Device {ip} is reachable on port TCP 22.")
+            print(f"INFO: Device {ip} is reachable on port TCP 22.")
             authLog.info(f"Device {ip} is reachable on port TCP 22.")
             return ip
         else:
-            print(f"Device {ip} is not reachable on port TCP 22, will be skipped.")
-            authLog.error(f"Device IP: {ip}, is not reachable on port TCP 22.")
-            authLog.debug(traceback.format_exc())
+            newIP = f"{baseIP}.cm.mgmt.internal.das"
+            connResult1 = connTest.connect_ex((newIP, 22))
+            if connResult1 == 0:
+                print(f"INFO: Device {newIP} is reachable on port TCP 22.")
+                authLog.info(f"Device {newIP} is reachable on port TCP 22.")
+                return newIP
+            else:
+                print(f"INFO: Device {ip} and {newIP} is not reachable on port TCP 22, will be skipped.")
+                authLog.error(f"Device: {ip} and {newIP}, is not reachable on port TCP 22, will be skipped")
+                authLog.error(traceback.format_exc())
 
     except Exception as error:
-        print("Error occurred while checking device reachability:", error,"\n")
+        print("ERROR: Error occurred while checking device reachability:", error,"\n")
         authLog.error(f"Error occurred while checking device reachability for IP {ip}: {error}")
-        authLog.debug(traceback.format_exc())
+        authLog.error(traceback.format_exc())
     
     finally:
         connTest.close()
