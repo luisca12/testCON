@@ -16,65 +16,64 @@ def checkIsDigit(input_str):
         authLog.error(traceback.format_exc())
                 
 def validateIP(deviceIP):
-    try:
-        socket.inet_aton(deviceIP)
-        authLog.info(f"IP successfully validated: {deviceIP}")
-        return True
-    except (socket.error, AttributeError):
-        try:
-            deviceIP1 = f'{deviceIP}.mgmt.internal.das'
-            socket.gethostbyname(deviceIP1)
-            authLog.info(f"Hostname successfully validated: {deviceIP1}")
-            return True
-        except socket.gaierror:
-            try:
-                deviceIP2 = f'{deviceIP}.cm.mgmt.internal.das'
-                socket.gethostbyname(deviceIP2)
-                authLog.info(f"Hostname successfully validated: {deviceIP2}")
-                return True
-            except socket.gaierror:
-                authLog.error(f"Not a valid IP address or hostname: {deviceIP1}, {deviceIP2}")
-                print(f"ERROR: Invalid IP address or hostname:  {deviceIP1}, {deviceIP2}")
-                # Append the invalid IP address or hostname to a CSV file
-                with open('invalidDestinations.csv', mode='a', newline='') as file:
-                    writer = csv.writer(file)
-                    writer.writerow([deviceIP])
-                return False
+    hostnamesResolution = [
+        f'{deviceIP}.mgmt.internal.das',
+        f'{deviceIP}.cm.mgmt.internal.das'
+    ]
         
-def checkReachPort22(ip):
-    baseIP = ip
-    try:
-        if ip.count('.') == 3:  # Check if the input is an IP address
-            ip = ip
-        else:  # Assume it's a hostname and append the domain
-            ip = f"{ip}.mgmt.internal.das"
-            pass
-        connTest = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        connTest.settimeout(3)
-        connResult = connTest.connect_ex((ip, 22))
-        if connResult == 0:
-            print(f"INFO: Device {ip} is reachable on port TCP 22.")
-            authLog.info(f"Device {ip} is reachable on port TCP 22.")
-            return ip
-        else:
-            newIP = f"{baseIP}.cm.mgmt.internal.das"
-            connResult1 = connTest.connect_ex((newIP, 22))
-            if connResult1 == 0:
-                print(f"INFO: Device {newIP} is reachable on port TCP 22.")
-                authLog.info(f"Device {newIP} is reachable on port TCP 22.")
-                return newIP
-            else:
-                print(f"INFO: Device {ip} and {newIP} is not reachable on port TCP 22, will be skipped.")
-                authLog.error(f"Device: {ip} and {newIP}, is not reachable on port TCP 22, will be skipped")
-                authLog.error(traceback.format_exc())
+    def checkConnect22(ipAddress, port=22, timeout=3):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connectTest:
+                connectTest.settimeout(timeout)
+                connectTestOut = connectTest.connect_ex((ipAddress, port))
+                return connectTestOut == 0
+        except socket.error as error:
+            authLog.error(f"Device {ipAddress} is not reachable on port TCP 22.")
+            authLog.error(f"Error:{error}\n", traceback.format_exc())
+            return False
 
-    except Exception as error:
-        print("ERROR: Error occurred while checking device reachability:", error,"\n")
-        authLog.error(f"Error occurred while checking device reachability for IP {ip}: {error}")
-        authLog.error(traceback.format_exc())
+    def validIP(ip):
+        try:
+            socket.inet_aton(ip)
+            authLog.info(f"IP successfully validated: {deviceIP}")
+            return True
+        except socket.error:
+            authLog.error(f"IP: {ip} is not an IP Address, will attempt to resolve hostname.")
+            return False
+
+    def resolveHostname(hostname):
+        try:
+            hostnameOut = socket.gethostbyname(hostname)
+            authLog.info(f"Hostname successfully validated: {hostname}")
+            return hostnameOut
+        except socket.gaierror:
+            authLog.error(f"Was not posible to resolve hostname: {hostname}")
+            return None
+
+    if validIP(deviceIP):
+        if checkConnect22(deviceIP):
+            authLog.info(f"Device IP {deviceIP} is reachable on Port TCP 22.")
+            print(f"INFO: Device IP {deviceIP} is reachable on Port TCP 22.")
+            return deviceIP
+
+    for hostname in hostnamesResolution:
+        resolvedIP = resolveHostname(hostname)
+        if resolvedIP and checkConnect22(resolvedIP):
+            authLog.info(f"Device IP {hostname} is reachable on Port TCP 22.")
+            print(f"INFO: Device IP {hostname} is reachable on Port TCP 22.")
+            return hostname    
+
+    hostnameStr = ', '.join(hostnamesResolution)  
     
-    finally:
-        connTest.close()
+    authLog.error(f"Not a valid IP address or hostname: {hostnameStr}")
+    authLog.error(traceback.format_exc())
+    print(f"ERROR: Invalid IP address or hostname: {hostnameStr}")
+
+    with open('invalidDestinations.csv', mode='a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([hostnameStr])
+    
+    return None
 
 def requestLogin(validIPs):
     while True:
