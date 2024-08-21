@@ -117,27 +117,5 @@ def requestLogin(validIPs):
             authLog.error(f"Remote device unreachable - remote device IP: {deviceIP}, Username: {username}")
             authLog.debug(traceback.format_exc())
 
-def delStringFromFile(filePath, stringToDel):
-    with open(filePath, "r") as file:
-        file_content = file.read()
-
-    updated_content = file_content.replace(stringToDel, "")
-
-    with open(filePath, "w") as file:
-        file.write(updated_content)
-
 def checkYNInput(stringInput):
     return stringInput.lower() == 'y' or stringInput.lower() == 'n'
-
-def readIPfromCSV(csvFile):
-    try:
-        with open(csvFile, "r") as deviceFile:
-            csvReader = csv.reader(deviceFile)
-            for row in csvReader:
-                for ip in row:
-                    ip = ip.strip()
-                    ip = ip + ".mgmt.internal.das"
-    except Exception as error:
-        print("Error occurred while checking device reachability:", error,"\n")
-        authLog.error(f"Error occurred while checking device reachability for IP {ip}: {error}")
-        authLog.debug(traceback.format_exc())
