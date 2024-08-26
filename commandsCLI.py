@@ -13,7 +13,7 @@ retryInterval = 5
 maxRetries = 180
 retries = 0
 shHostname = "show run | i hostname"
-shIntCON = "show interface description | inc CON|con|NET|Net|net"
+shIntCON = "show interface description | inc NET1|NET2"
 
 shutdownInt = [
     f'interface {interface}',
@@ -30,7 +30,7 @@ lock = threading.Lock()
 
 # Regex Patterns
 intPatt = r'[a-zA-Z]+\d+\/(?:\d+\/)*\d+'
-domainPatt = '.mgmt.internal.das'
+domainPatt = re.compile(r'-core-0[0-1]\.mgmt\.internal\.das|-core-0[0-1]\.cm\.mgmt\.internal\.das')
 
 def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices):
     # This function is test the connectivity to the INET network of the Opengear devices
@@ -51,7 +51,8 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
                 'timeout': 120,
                 'session_log': 'netmikoLog.txt',
                 'verbose': True,
-                'session_log_file_mode': 'append'
+                'session_log_file_mode': 'append',
+                'keepalive' : 30
             }
 
             print(f"Connecting to device {validDeviceIP}...")
@@ -60,7 +61,8 @@ def testCON(validIPs, username, netDevice, reachableDevices, unreachableDevices)
                     sshAccess.enable()
                     shHostnameOut = sshAccess.send_command(shHostname)
                     authLog.info(f"User {username} successfully found the hostname {shHostnameOut}")
-                    shHostnameOut = shHostnameOut.replace('hostname', '').strip() + "#"
+                    shHostnameOut = shHostnameOut.split(' ')[1]
+                    shHostnameOut = shHostnameOut + "#"
 
                     print(f"INFO: Taking a \"{shIntCON}\" for device: {validDeviceIP}")
                     shIntCONOut = sshAccess.send_command(shIntCON)
